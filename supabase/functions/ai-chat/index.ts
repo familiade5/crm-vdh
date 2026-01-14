@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, leadId, leadName, leadInterest, welcomeMessage } = await req.json();
+    const { message, leadId, leadName, leadInterest, welcomeMessage, conversationHistory } = await req.json();
     
     console.log('AI Chat request received:', { leadId, leadName, messagePreview: message?.substring(0, 50) });
 
@@ -27,31 +27,72 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch AI settings
-    const authHeader = req.headers.get('Authorization');
+    // Fetch AI settings for the user
     let aiSettings = {
-      welcome_message: welcomeMessage || 'Olá! 👋 Bem-vindo à nossa imobiliária! Sou o assistente virtual e estou aqui para ajudá-lo a encontrar o imóvel ideal.'
+      welcome_message: welcomeMessage || 'Olá! 👋 Bem-vindo à nossa imobiliária! Sou o assistente virtual e estou aqui para ajudá-lo a encontrar o imóvel ideal.',
+      auto_response: true,
+      auto_scheduling: false,
     };
 
-    // System prompt for real estate AI
-    const systemPrompt = `Você é um assistente virtual de uma imobiliária brasileira. Seu objetivo é:
-1. Fazer a pré-qualificação dos leads
-2. Coletar informações sobre o tipo de imóvel desejado (apartamento, casa, comercial)
-3. Entender a faixa de preço do cliente
-4. Descobrir a região de interesse
-5. Verificar se é para compra ou aluguel
-6. Agendar visitas quando apropriado
+    // System prompt for real estate AI with auto-response and handoff
+    const systemPrompt = `Você é um assistente virtual de uma imobiliária brasileira chamada ImobiCRM. Seu objetivo principal é:
 
-Regras importantes:
-- Seja cordial e profissional
+## PASSO 1 - PRÉ-QUALIFICAÇÃO (Perguntas obrigatórias)
+Faça estas perguntas de forma natural e conversacional:
+1. Qual seu nome completo?
+2. Está procurando imóvel para COMPRAR ou ALUGAR?
+3. Qual tipo de imóvel? (apartamento, casa, sala comercial, terreno)
+4. Qual região/bairro de preferência?
+5. Qual faixa de preço máxima?
+6. Quantos quartos/suítes precisa?
+7. Tem preferência de condomínio com lazer?
+
+## PASSO 2 - CLASSIFICAÇÃO DE TEMPERATURA
+Baseado nas respostas, classifique o lead:
+- QUENTE 🔥: Tem urgência, orçamento definido, pronto para visitar
+- MORNO 🌡️: Interessado mas sem urgência imediata
+- FRIO ❄️: Apenas pesquisando, sem definições
+
+## PASSO 3 - AUTO-RESPOSTA E HANDOFF
+- Se o cliente pedir para falar com HUMANO/CORRETOR/ATENDENTE, responda:
+  "Entendi! Vou transferir você para um de nossos corretores especializados agora mesmo. Aguarde um momento, em breve entraremos em contato! 📞"
+- Se o lead estiver QUENTE e respondeu todas as perguntas, ofereça agendar uma visita
+- Se detectar que precisa de atendimento especializado, sugira a transferência
+
+## REGRAS IMPORTANTES
+- Seja cordial, profissional e use emojis com moderação
 - Use linguagem informal mas respeitosa (você, não tu)
-- Faça perguntas abertas para entender melhor as necessidades
-- Se o cliente pedir para falar com um humano, diga: "Entendo! Vou transferir você para um de nossos corretores agora mesmo. Aguarde um momento."
-- Não invente informações sobre imóveis específicos
-- Foque em qualificar o lead antes de oferecer imóveis
+- Faça UMA pergunta por vez para não sobrecarregar
+- NÃO invente informações sobre imóveis específicos
+- Sempre agradeça as informações fornecidas
+- Se o cliente demonstrar frustração, ofereça transferir para humano
 
-Nome do lead: ${leadName || 'Cliente'}
-Interesse declarado: ${leadInterest || 'Não especificado'}`;
+## CONTEXTO DO LEAD
+Nome: ${leadName || 'Cliente'}
+Interesse declarado: ${leadInterest || 'Não especificado'}
+
+## HISTÓRICO DA CONVERSA
+${conversationHistory ? conversationHistory.map((m: { role: string; content: string }) => 
+  `${m.role === 'user' ? 'Cliente' : 'Assistente'}: ${m.content}`
+).join('\n') : 'Início da conversa'}`;
+
+    // Build messages array
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    // Add conversation history if provided
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      for (const msg of conversationHistory) {
+        messages.push({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content
+        });
+      }
+    }
+
+    // Add current message
+    messages.push({ role: 'user', content: message || 'Olá' });
 
     // Call Lovable AI Gateway
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -62,10 +103,7 @@ Interesse declarado: ${leadInterest || 'Não especificado'}`;
       },
       body: JSON.stringify({
         model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message || 'Olá' }
-        ],
+        messages,
         max_tokens: 500,
         temperature: 0.7,
       }),
@@ -81,17 +119,68 @@ Interesse declarado: ${leadInterest || 'Não especificado'}`;
     const aiResponse = data.choices[0]?.message?.content || 'Desculpe, não consegui processar sua mensagem. Por favor, tente novamente.';
 
     // Check if user requested human transfer
-    const isTransferRequest = message?.toLowerCase().includes('humano') || 
-                              message?.toLowerCase().includes('atendente') ||
-                              message?.toLowerCase().includes('pessoa') ||
-                              message?.toLowerCase().includes('corretor');
+    const lowerMessage = message?.toLowerCase() || '';
+    const isTransferRequest = 
+      lowerMessage.includes('humano') || 
+      lowerMessage.includes('atendente') ||
+      lowerMessage.includes('pessoa') ||
+      lowerMessage.includes('corretor') ||
+      lowerMessage.includes('falar com alguém') ||
+      lowerMessage.includes('atendimento');
+
+    // Check if AI response suggests transfer
+    const aiSuggestsTransfer = 
+      aiResponse.toLowerCase().includes('transferir') ||
+      aiResponse.toLowerCase().includes('corretor especializado');
 
     // Detect temperature based on conversation
-    let suggestedTemperature = null;
-    if (message?.toLowerCase().includes('urgente') || message?.toLowerCase().includes('preciso agora')) {
+    let suggestedTemperature: string | null = null;
+    let suggestedScore = 0;
+
+    // Analyze message content for lead scoring
+    if (lowerMessage.includes('urgente') || lowerMessage.includes('preciso agora') || lowerMessage.includes('esta semana')) {
       suggestedTemperature = 'quente';
-    } else if (message?.toLowerCase().includes('interessado') || message?.toLowerCase().includes('gostaria')) {
+      suggestedScore = 80;
+    } else if (lowerMessage.includes('interessado') || lowerMessage.includes('gostaria') || lowerMessage.includes('quero')) {
       suggestedTemperature = 'morno';
+      suggestedScore = 50;
+    } else if (lowerMessage.includes('apenas olhando') || lowerMessage.includes('pesquisando') || lowerMessage.includes('no futuro')) {
+      suggestedTemperature = 'frio';
+      suggestedScore = 20;
+    }
+
+    // Extract budget if mentioned
+    const budgetMatch = lowerMessage.match(/(\d{2,3})(\s)?(mil|k)|(\d{1,2})(\s)?(milhão|milhões|mi)/);
+    let extractedBudget = null;
+    if (budgetMatch) {
+      extractedBudget = budgetMatch[0];
+    }
+
+    // Update lead in database if we have new info
+    if (leadId && (suggestedTemperature || extractedBudget || isTransferRequest)) {
+      const updates: Record<string, unknown> = {};
+      if (suggestedTemperature) {
+        updates.temperature = suggestedTemperature;
+        updates.score = suggestedScore;
+      }
+      if (extractedBudget) {
+        updates.budget = extractedBudget;
+      }
+      if (isTransferRequest || aiSuggestsTransfer) {
+        updates.requested_human = true;
+        updates.ai_active = false;
+      }
+      if (suggestedScore >= 50) {
+        updates.ai_qualified = true;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await supabase
+          .from('leads')
+          .update(updates)
+          .eq('id', leadId);
+        console.log('Lead updated:', updates);
+      }
     }
 
     console.log('AI response generated successfully');
@@ -99,8 +188,10 @@ Interesse declarado: ${leadInterest || 'Não especificado'}`;
     return new Response(
       JSON.stringify({ 
         response: aiResponse,
-        isTransferRequest,
-        suggestedTemperature
+        isTransferRequest: isTransferRequest || aiSuggestsTransfer,
+        suggestedTemperature,
+        suggestedScore,
+        extractedBudget,
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
