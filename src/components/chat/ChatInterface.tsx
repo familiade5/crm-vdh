@@ -1,17 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, Paperclip, Mic, MoreVertical, AlertTriangle, UserCheck, Power, Bell } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Paperclip, Mic, MoreVertical, AlertTriangle, UserCheck, Power, Bell, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { mockChatMessages } from '@/data/mockData';
-import { ChatMessage, LeadTemperature } from '@/types';
+import { useChatMessages } from '@/hooks/useLeads';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 interface ChatInterfaceProps {
-  leadId?: string;
-  leadName?: string;
-  leadTemperature?: LeadTemperature;
+  leadId: string;
+  leadName: string;
+  leadTemperature?: 'frio' | 'morno' | 'quente';
   leadSource?: string;
+  leadInterest?: string;
 }
 
 const temperatureConfig = {
@@ -21,16 +21,18 @@ const temperatureConfig = {
 };
 
 export function ChatInterface({ 
-  leadId = '1', 
-  leadName = 'João Silva',
-  leadTemperature = 'quente',
-  leadSource = 'facebook'
+  leadId, 
+  leadName,
+  leadTemperature = 'frio',
+  leadSource = 'site',
+  leadInterest = ''
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>(mockChatMessages);
+  const { messages, loading, sendMessage, callAI } = useChatMessages(leadId);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isAIActive, setIsAIActive] = useState(true);
   const [showTransferAlert, setShowTransferAlert] = useState(false);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const tempConfig = temperatureConfig[leadTemperature];
@@ -43,54 +45,48 @@ export function ChatInterface({
     scrollToBottom();
   }, [messages]);
 
-  // Detecta pedido de transferência para humano
+  // Check for transfer requests
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.isTransferRequest && isAIActive) {
+    if (lastMessage?.is_transfer_request && isAIActive) {
       setShowTransferAlert(true);
       setIsAIActive(false);
       toast.warning('🚨 Lead solicitou atendimento humano!', {
         description: `${leadName} quer falar com um corretor.`,
         duration: 10000,
-        action: {
-          label: 'Atender',
-          onClick: () => setShowTransferAlert(false),
-        },
       });
     }
   }, [messages, isAIActive, leadName]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || sending) return;
 
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      leadId,
-      content: input,
-      sender: 'agent',
-      timestamp: new Date(),
-      isAI: false,
-    };
-
-    setMessages([...messages, newMessage]);
+    setSending(true);
+    const userMessage = input;
     setInput('');
 
-    // Se IA está ativa, simula resposta da IA
+    // Send agent message
+    await sendMessage(userMessage, 'agent', false, false);
+
+    // If AI is active, get AI response
     if (isAIActive) {
       setIsTyping(true);
-      setTimeout(() => {
-        const aiResponse: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          leadId,
-          content: 'Entendido! Vou verificar essa informação e retorno em instantes. Enquanto isso, posso ajudar com mais alguma dúvida sobre o imóvel? 🏠',
-          sender: 'ai',
-          timestamp: new Date(),
-          isAI: true,
-        };
-        setMessages((prev) => [...prev, aiResponse]);
+      
+      try {
+        const aiResult = await callAI(userMessage, leadName, leadInterest);
+        
+        if (aiResult?.response) {
+          await sendMessage(aiResult.response, 'ai', true, aiResult.isTransferRequest || false);
+        }
+      } catch (error) {
+        console.error('AI error:', error);
+        toast.error('Erro ao obter resposta da IA');
+      } finally {
         setIsTyping(false);
-      }, 1500);
+      }
     }
+
+    setSending(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -112,8 +108,50 @@ export function ChatInterface({
     toast.success('Você assumiu o atendimento deste lead');
   };
 
+  // Simulate lead message (for testing)
+  const simulateLeadMessage = async () => {
+    const testMessages = [
+      'Olá! Estou interessado em um apartamento de 3 quartos.',
+      'Qual o valor médio dos imóveis na região?',
+      'Vocês têm imóveis disponíveis no centro?',
+      'Gostaria de agendar uma visita.',
+      'Quero falar com um corretor humano, por favor.',
+    ];
+    const randomMessage = testMessages[Math.floor(Math.random() * testMessages.length)];
+    
+    // Check if it's a transfer request
+    const isTransfer = randomMessage.toLowerCase().includes('humano') || 
+                       randomMessage.toLowerCase().includes('corretor');
+    
+    await sendMessage(randomMessage, 'lead', false, isTransfer);
+    
+    // If AI is active and not a transfer request, get AI response
+    if (isAIActive && !isTransfer) {
+      setIsTyping(true);
+      setTimeout(async () => {
+        try {
+          const aiResult = await callAI(randomMessage, leadName, leadInterest);
+          if (aiResult?.response) {
+            await sendMessage(aiResult.response, 'ai', true, false);
+          }
+        } catch (error) {
+          console.error('AI error:', error);
+        }
+        setIsTyping(false);
+      }, 1500);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full bg-card rounded-2xl shadow-md overflow-hidden items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-[600px] bg-card rounded-2xl shadow-md overflow-hidden">
+    <div className="flex flex-col h-full bg-card rounded-2xl shadow-md overflow-hidden">
       {/* Transfer Alert Banner */}
       {showTransferAlert && (
         <div className="bg-warning/10 border-b border-warning/30 px-4 py-3 flex items-center justify-between animate-pulse">
@@ -141,7 +179,7 @@ export function ChatInterface({
         <div className="flex items-center gap-4">
           <div className="relative">
             <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-bold">
-              {leadName.split(' ').map((n) => n[0]).join('')}
+              {leadName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
             </div>
             <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-success border-2 border-card flex items-center justify-center">
               <div className="w-2 h-2 rounded-full bg-success-foreground animate-pulse" />
@@ -150,7 +188,6 @@ export function ChatInterface({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-semibold">{leadName}</h3>
-              {/* Temperature Badge */}
               <span className={cn(
                 'px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1',
                 tempConfig.bgLight, tempConfig.textColor
@@ -180,7 +217,15 @@ export function ChatInterface({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* AI Toggle Button */}
+          {/* Simulate Lead Message Button */}
+          <button
+            onClick={simulateLeadMessage}
+            className="px-3 py-2 rounded-xl text-sm bg-muted hover:bg-muted/80 transition-colors"
+            title="Simular mensagem do lead"
+          >
+            📩 Simular
+          </button>
+          
           <button
             onClick={toggleAI}
             className={cn(
@@ -210,83 +255,93 @@ export function ChatInterface({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-muted/30">
-        {messages.map((message, index) => {
-          const isLead = message.sender === 'lead';
-          const isAI = message.isAI;
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="text-center">
+              <Bot className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>Nenhuma mensagem ainda</p>
+              <p className="text-sm mt-1">Clique em "Simular" para testar o chat</p>
+            </div>
+          </div>
+        ) : (
+          messages.map((message, index) => {
+            const isLead = message.sender === 'lead';
+            const isAI = message.is_ai;
 
-          return (
-            <div
-              key={message.id}
-              className={cn(
-                'flex gap-3 animate-slide-in',
-                isLead ? 'justify-start' : 'justify-end'
-              )}
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              {isLead && (
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                </div>
-              )}
-
+            return (
               <div
+                key={message.id}
                 className={cn(
-                  'max-w-[70%] rounded-2xl px-4 py-3',
-                  isLead
-                    ? message.isTransferRequest
-                      ? 'bg-warning/10 border-2 border-warning/30 rounded-tl-none'
-                      : 'bg-card border border-border rounded-tl-none'
-                    : isAI
-                    ? 'bg-gradient-primary text-primary-foreground rounded-tr-none'
-                    : 'bg-primary text-primary-foreground rounded-tr-none'
+                  'flex gap-3 animate-slide-in',
+                  isLead ? 'justify-start' : 'justify-end'
                 )}
+                style={{ animationDelay: `${index * 50}ms` }}
               >
-                {message.isTransferRequest && (
-                  <div className="flex items-center gap-1 mb-1 text-xs text-warning">
-                    <Bell className="w-3 h-3" />
-                    <span>Solicitou atendente</span>
+                {isLead && (
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-muted-foreground" />
                   </div>
                 )}
-                {isAI && (
-                  <div className="flex items-center gap-1 mb-1 text-xs opacity-80">
-                    <Bot className="w-3 h-3" />
-                    <span>Assistente IA</span>
-                  </div>
-                )}
-                {!isLead && !isAI && (
-                  <div className="flex items-center gap-1 mb-1 text-xs opacity-80">
-                    <UserCheck className="w-3 h-3" />
-                    <span>Você</span>
-                  </div>
-                )}
-                <p className="text-sm leading-relaxed">{message.content}</p>
-                <p
-                  className={cn(
-                    'text-xs mt-2',
-                    isLead ? 'text-muted-foreground' : 'opacity-70'
-                  )}
-                >
-                  {format(message.timestamp, "HH:mm", { locale: ptBR })}
-                </p>
-              </div>
 
-              {!isLead && (
                 <div
                   className={cn(
-                    'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-                    isAI ? 'bg-gradient-primary' : 'bg-primary'
+                    'max-w-[70%] rounded-2xl px-4 py-3',
+                    isLead
+                      ? message.is_transfer_request
+                        ? 'bg-warning/10 border-2 border-warning/30 rounded-tl-none'
+                        : 'bg-card border border-border rounded-tl-none'
+                      : isAI
+                      ? 'bg-gradient-primary text-primary-foreground rounded-tr-none'
+                      : 'bg-primary text-primary-foreground rounded-tr-none'
                   )}
                 >
-                  {isAI ? (
-                    <Bot className="w-4 h-4 text-primary-foreground" />
-                  ) : (
-                    <User className="w-4 h-4 text-primary-foreground" />
+                  {message.is_transfer_request && (
+                    <div className="flex items-center gap-1 mb-1 text-xs text-warning">
+                      <Bell className="w-3 h-3" />
+                      <span>Solicitou atendente</span>
+                    </div>
                   )}
+                  {isAI && (
+                    <div className="flex items-center gap-1 mb-1 text-xs opacity-80">
+                      <Bot className="w-3 h-3" />
+                      <span>Assistente IA</span>
+                    </div>
+                  )}
+                  {!isLead && !isAI && (
+                    <div className="flex items-center gap-1 mb-1 text-xs opacity-80">
+                      <UserCheck className="w-3 h-3" />
+                      <span>Você</span>
+                    </div>
+                  )}
+                  <p className="text-sm leading-relaxed">{message.content}</p>
+                  <p
+                    className={cn(
+                      'text-xs mt-2',
+                      isLead ? 'text-muted-foreground' : 'opacity-70'
+                    )}
+                  >
+                    {format(new Date(message.created_at), "HH:mm", { locale: ptBR })}
+                  </p>
                 </div>
-              )}
-            </div>
-          );
-        })}
+
+                {!isLead && (
+                  <div
+                    className={cn(
+                      'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+                      isAI ? 'bg-gradient-primary' : 'bg-primary'
+                    )}
+                  >
+                    {isAI ? (
+                      <Bot className="w-4 h-4 text-primary-foreground" />
+                    ) : (
+                      <User className="w-4 h-4 text-primary-foreground" />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
 
         {isTyping && (
           <div className="flex gap-3 animate-fade-in">
@@ -329,15 +384,19 @@ export function ChatInterface({
 
           <button
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || sending}
             className={cn(
               'p-3 rounded-xl transition-all duration-200',
-              input.trim()
+              input.trim() && !sending
                 ? 'bg-gradient-primary text-primary-foreground shadow-glow hover:scale-105'
                 : 'bg-muted text-muted-foreground'
             )}
           >
-            <Send className="w-5 h-5" />
+            {sending ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </button>
         </div>
 
