@@ -119,7 +119,7 @@ const Configuracoes = () => {
 
   return (
     <MainLayout>
-      <div className="p-6 lg:p-8 space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
         {/* Header */}
         <div>
           <h1 className="font-display font-bold text-3xl lg:text-4xl">Configurações</h1>
@@ -128,9 +128,31 @@ const Configuracoes = () => {
           </p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           {/* Tabs */}
           <div className="lg:w-64 flex-shrink-0">
+            {/* Mobile horizontal scroll tabs */}
+            <div className="lg:hidden overflow-x-auto pb-2 -mx-4 px-4">
+              <div className="flex gap-2 min-w-max">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors',
+                      activeTab === tab.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-card hover:bg-muted'
+                    )}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Desktop vertical tabs */}
+            <div className="hidden lg:block">
             <div className="bg-card rounded-2xl p-4 shadow-md space-y-1">
               {tabs.map((tab) => (
                 <button
@@ -147,6 +169,7 @@ const Configuracoes = () => {
                   <span className="font-medium">{tab.label}</span>
                 </button>
               ))}
+            </div>
             </div>
           </div>
 
