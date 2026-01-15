@@ -96,10 +96,12 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
     e.preventDefault();
     const submitData = {
       ...formData,
-      broker_id: formData.broker_id || null,
+      broker_id: formData.broker_id === '_none' ? null : formData.broker_id || null,
     };
     onSubmit(submitData);
   };
+
+  const brokerValue = formData.broker_id || '_none';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -178,14 +180,14 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
               <div>
                 <Label htmlFor="broker_id">Corretor Responsável</Label>
                 <Select
-                  value={formData.broker_id}
-                  onValueChange={(value) => setFormData({ ...formData, broker_id: value })}
+                  value={brokerValue}
+                  onValueChange={(value) => setFormData({ ...formData, broker_id: value === '_none' ? '' : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um corretor" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="_none">Nenhum</SelectItem>
                     {brokers.filter(b => b.is_active).map((broker) => (
                       <SelectItem key={broker.id} value={broker.id}>
                         {broker.name}
