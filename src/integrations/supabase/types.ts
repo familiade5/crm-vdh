@@ -47,6 +47,114 @@ export type Database = {
         }
         Relationships: []
       }
+      broker_commissions: {
+        Row: {
+          broker_id: string
+          commission_amount: number
+          commission_rate: number
+          created_at: string
+          due_date: string | null
+          id: string
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          sale_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          broker_id: string
+          commission_amount: number
+          commission_rate: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string
+          sale_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          broker_id?: string
+          commission_amount?: number
+          commission_rate?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string
+          sale_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_commissions_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_commissions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "property_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brokers: {
+        Row: {
+          commission_rate: number
+          cpf: string | null
+          created_at: string
+          creci: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          commission_rate?: number
+          cpf?: string | null
+          created_at?: string
+          creci?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          commission_rate?: number
+          cpf?: string | null
+          created_at?: string
+          creci?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -258,6 +366,65 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      property_sales: {
+        Row: {
+          broker_id: string
+          buyer_cpf: string | null
+          buyer_name: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          property_address: string | null
+          property_title: string
+          registration_completed_at: string | null
+          registration_status: string
+          sale_date: string
+          sale_price: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          broker_id: string
+          buyer_cpf?: string | null
+          buyer_name?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          property_address?: string | null
+          property_title: string
+          registration_completed_at?: string | null
+          registration_status?: string
+          sale_date?: string
+          sale_price: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          broker_id?: string
+          buyer_cpf?: string | null
+          buyer_name?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          property_address?: string | null
+          property_title?: string
+          registration_completed_at?: string | null
+          registration_status?: string
+          sale_date?: string
+          sale_price?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_sales_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_connections: {
         Row: {

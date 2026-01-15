@@ -13,6 +13,9 @@ import Integracoes from "./pages/Integracoes";
 import Agenda from "./pages/Agenda";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
+import Corretores from "./pages/Corretores";
+import Vendas from "./pages/Vendas";
+import Comissoes from "./pages/Comissoes";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -35,6 +38,9 @@ const App = () => (
             <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
             <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
             <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+            <Route path="/corretores" element={<ProtectedRoute><Corretores /></ProtectedRoute>} />
+            <Route path="/vendas" element={<ProtectedRoute><Vendas /></ProtectedRoute>} />
+            <Route path="/comissoes" element={<ProtectedRoute><Comissoes /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
