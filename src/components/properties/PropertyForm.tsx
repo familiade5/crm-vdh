@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBrokers } from '@/hooks/useBrokers';
+import { PropertyImageUpload } from './PropertyImageUpload';
 import type { Property } from '@/types/properties';
-
 interface PropertyFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,6 +50,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
     parking_spaces: 0,
     area: 0,
     broker_id: '',
+    images: [] as string[],
   });
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
         parking_spaces: property.parking_spaces || 0,
         area: property.area || 0,
         broker_id: property.broker_id || '',
+        images: property.images || [],
       });
     } else {
       setFormData({
@@ -88,6 +90,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
         parking_spaces: 0,
         area: 0,
         broker_id: '',
+        images: [],
       });
     }
   }, [property, open]);
@@ -97,6 +100,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
     const submitData = {
       ...formData,
       broker_id: formData.broker_id === '_none' ? null : formData.broker_id || null,
+      images: formData.images,
     };
     onSubmit(submitData);
   };
@@ -317,6 +321,13 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
               </div>
             </div>
           </div>
+
+          {/* Property Images */}
+          <PropertyImageUpload
+            images={formData.images}
+            onChange={(images) => setFormData({ ...formData, images })}
+            propertyId={property?.id}
+          />
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
