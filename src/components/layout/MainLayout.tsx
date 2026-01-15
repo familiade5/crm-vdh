@@ -1,6 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Menu } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -8,6 +9,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -25,11 +27,18 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Sidebar */}
       <Sidebar 
         mobileOpen={mobileMenuOpen} 
-        onMobileClose={() => setMobileMenuOpen(false)} 
+        onMobileClose={() => setMobileMenuOpen(false)}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
       />
 
       {/* Main Content */}
-      <main className="pt-14 lg:pt-0 lg:ml-20 xl:ml-64 transition-all duration-300 min-h-screen">
+      <main 
+        className={cn(
+          "pt-14 lg:pt-0 transition-all duration-300 min-h-screen",
+          sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"
+        )}
+      >
         {children}
       </main>
     </div>
