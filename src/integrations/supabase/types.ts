@@ -367,6 +367,131 @@ export type Database = {
         }
         Relationships: []
       }
+      properties: {
+        Row: {
+          address: string | null
+          area: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          broker_id: string | null
+          city: string | null
+          created_at: string
+          description: string | null
+          features: string[] | null
+          id: string
+          images: string[] | null
+          neighborhood: string | null
+          parking_spaces: number | null
+          price: number
+          property_type: string
+          sold_at: string | null
+          state: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          area?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          broker_id?: string | null
+          city?: string | null
+          created_at?: string
+          description?: string | null
+          features?: string[] | null
+          id?: string
+          images?: string[] | null
+          neighborhood?: string | null
+          parking_spaces?: number | null
+          price?: number
+          property_type?: string
+          sold_at?: string | null
+          state?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          area?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          broker_id?: string | null
+          city?: string | null
+          created_at?: string
+          description?: string | null
+          features?: string[] | null
+          id?: string
+          images?: string[] | null
+          neighborhood?: string | null
+          parking_spaces?: number | null
+          price?: number
+          property_type?: string
+          sold_at?: string | null
+          state?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_interested_leads: {
+        Row: {
+          created_at: string
+          id: string
+          interest_level: string | null
+          lead_id: string
+          notes: string | null
+          property_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interest_level?: string | null
+          lead_id: string
+          notes?: string | null
+          property_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interest_level?: string | null
+          lead_id?: string
+          notes?: string | null
+          property_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_interested_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_interested_leads_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_sales: {
         Row: {
           broker_id: string
