@@ -15,6 +15,9 @@ import {
   Calendar,
   X,
   LogOut,
+  UserCheck,
+  Receipt,
+  Wallet,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -24,6 +27,9 @@ const menuItems = [
   { icon: Building2, label: 'Imóveis', path: '/imoveis' },
   { icon: MessageSquare, label: 'Chat IA', path: '/chat' },
   { icon: Calendar, label: 'Agenda', path: '/agenda' },
+  { icon: UserCheck, label: 'Corretores', path: '/corretores' },
+  { icon: Receipt, label: 'Vendas', path: '/vendas' },
+  { icon: Wallet, label: 'Comissões', path: '/comissoes' },
   { icon: Plug, label: 'Integrações', path: '/integracoes' },
   { icon: TrendingUp, label: 'Relatórios', path: '/relatorios' },
   { icon: Settings, label: 'Configurações', path: '/configuracoes' },
